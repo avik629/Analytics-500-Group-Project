@@ -9,22 +9,50 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Abstract
+Right now the goal is to get a good understanding of the data. AKA exploratory analysis.
+Relationships worth checking out:
+*Arr Delay ~ Day of the week*
+It seems arrival delay is related to day of the week
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+Net Delay ~ Month
+Dep Delay ~ Dep Airport
+Arr Delay ~ Arr Airport
+Net Delay ~ Airline
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r cars}
-summary(cars)
+Prediction query: What is the chance that a flight will be delayed given.......
+
+####Basic setup code
+
+```{r setup2}
+library(tidyverse)
+set.seed(111)
 ```
 
-## Including Plots
+####Checking out the data
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r check}
+flightData <- read.csv("flights.csv", header = TRUE)
+head(flightData)
+str(flightData)
+summary(flightData)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+####Modifying the dataset
+
+```{r modify}
+flightData <- mutate(flightData, DAY_OF_WEEK = as.factor(DAY_OF_WEEK))
+flightData$DAY_OF_WEEK <- ordered(flightData$DAY_OF_WEEK, levels = c("1","2","3","4","5","6","7"))
+levels(flightData$DAY_OF_WEEK) <- c("Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
+```
+
+Plot of arrival delay vs Day of the week
+
+```{r}
+groupByDay <- group_by(select(flightData, DAY_OF_WEEK, ARRIVAL_DELAY),DAY_OF_WEEK)
+groupByDay <- groupByDay[complete.cases(groupByDay),]
+delayByDay <- summarise(groupByDay, AVG_ARR_DELAY = mean(ARRIVAL_DELAY))
+ggplot(data = delayByDay, aes(x = DAY_OF_WEEK, y = AVG_ARR_DELAY, fill = DAY_OF_WEEK)) + geom_bar(stat = "identity") + guides(fill = FALSE)
+```
+
