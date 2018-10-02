@@ -2,7 +2,9 @@
 title: "Analytics 502"
 author: "Avik Roy"
 date: "September 30, 2018"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -13,7 +15,13 @@ knitr::opts_chunk$set(echo = TRUE)
 Right now the goal is to get a good understanding of the data. AKA exploratory analysis.
 Relationships worth checking out:
 *Arr Delay ~ Day of the week*
-It seems arrival delay is related to day of the week
+It seems arrival delay is related to day of the week.
+
+Hypothesis Test
+H0 : Mean arrival delay on Sat <= 0
+H1 : Mean arival delay > 0
+
+There should be a section to check t-test assumptions (n>30, etc, etc)
 
 Net Delay ~ Month
 Dep Delay ~ Dep Airport
@@ -54,5 +62,17 @@ groupByDay <- group_by(select(flightData, DAY_OF_WEEK, ARRIVAL_DELAY),DAY_OF_WEE
 groupByDay <- groupByDay[complete.cases(groupByDay),]
 delayByDay <- summarise(groupByDay, AVG_ARR_DELAY = mean(ARRIVAL_DELAY))
 ggplot(data = delayByDay, aes(x = DAY_OF_WEEK, y = AVG_ARR_DELAY, fill = DAY_OF_WEEK)) + geom_bar(stat = "identity") + guides(fill = FALSE)
+```
+
+####Hypothesis Test
+H0 : Mean arrival delay on Sat <= 0
+H1 : Mean arival delay > 0
+
+Putting saturday arrival delays in  a vector and then running the above hypothesis tests
+```{r hypotest}
+arrdelaySat <- filter(flightData, DAY_OF_WEEK == "Saturday")$ARRIVAL_DELAY
+summary(arrdelaySat)
+test_res <- t.test(arrdelaySat, mu = 0, alternative = "greater")
+test_res
 ```
 
