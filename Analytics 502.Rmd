@@ -4,11 +4,13 @@ author: "Avik Roy"
 date: "September 30, 2018"
 output:
   word_document: default
+  pdf_document: default
   html_document: default
+classoption: landscape
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,tidy.opts=list(width.cutoff=30),tidy=TRUE)
 ```
 
 ## Abstract
@@ -18,8 +20,8 @@ Relationships worth checking out:
 It seems arrival delay is related to day of the week.
 
 Hypothesis Test
-H0 : Mean arrival delay on Sat <= 0
-H1 : Mean arival delay > 0
+H0 : Mean arrival delay on Sat-Evening <= 0
+H1 : Mean arival delay on Sat-Evening > 0
 
 There should be a section to check t-test assumptions (n>30, etc, etc)
 
@@ -55,6 +57,49 @@ flightData$DAY_OF_WEEK <- ordered(flightData$DAY_OF_WEEK, levels = c("1","2","3"
 levels(flightData$DAY_OF_WEEK) <- c("Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
 ```
 
+####Additional modification
+Modifying the dataset convert integer time to HH:MM format time
+```{r}
+flightData <- mutate(flightData, SCHEDULED_DEPARTURE = format(strptime(sprintf("%04d",SCHEDULED_DEPARTURE), format="%H%M"), format = "%H:%M"))
+flightData <- mutate(flightData, DEPARTURE_TIME = format(strptime(sprintf("%04d",DEPARTURE_TIME), format="%H%M"), format = "%H:%M"))
+```
+
+Modifying the dataset to have, a column for morning to night clasification for _scheduled_ departure time
+```{r}
+flightData <- mutate(flightData, DEP_TIME_OF_DAY = 
+                       ifelse (SCHEDULED_DEPARTURE >= "18:00","Evening",
+                       ifelse (SCHEDULED_DEPARTURE >= "12:00","Afternoon",
+                       ifelse (SCHEDULED_DEPARTURE >= "06:00","Morning","Night")))
+                    )
+```
+
+Ordering the factors in Time of day
+```{r}
+flightData <- mutate(flightData, DEP_TIME_OF_DAY = as.factor(DEP_TIME_OF_DAY))
+flightData$DEP_TIME_OF_DAY <- ordered(flightData$DEP_TIME_OF_DAY, levels = c("Morning","Afternoon", "Evening","Night"))
+```
+
+Plot of arrival delay vs Day of the week + Time of the day
+```{r}
+groupByDayTime <- group_by(select(flightData, DAY_OF_WEEK, DEP_TIME_OF_DAY, ARRIVAL_DELAY),DAY_OF_WEEK,DEP_TIME_OF_DAY)
+groupByDayTime <- groupByDayTime[complete.cases(groupByDayTime),]
+delayByDayTime <- summarise(groupByDayTime, AVG_ARR_DELAY = mean(ARRIVAL_DELAY))
+ggplot(data = delayByDayTime, aes(x = DEP_TIME_OF_DAY, y = AVG_ARR_DELAY, fill = DAY_OF_WEEK)) + geom_bar(stat = "identity") + guides(fill = FALSE) + facet_wrap(vars(DAY_OF_WEEK),nrow = 1) + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+####Hypothesis Test
+H0 : Mean arrival delay on Sat-Evening <= 0
+H1 : Mean arival delay on Sat-Evening > 0
+
+Putting saturday arrival delays in  a vector and then running the above hypothesis tests
+```{r hypotest1}
+arrdelaySat <- filter(flightData, DAY_OF_WEEK == "Saturday", DEP_TIME_OF_DAY == "Evening")$ARRIVAL_DELAY
+summary(arrdelaySat)
+test_res <- t.test(arrdelaySat, mu = 0, alternative = "greater")
+test_res
+```
+
+###APPENDIX
 Plot of arrival delay vs Day of the week
 
 ```{r}
@@ -69,10 +114,9 @@ H0 : Mean arrival delay on Sat <= 0
 H1 : Mean arival delay > 0
 
 Putting saturday arrival delays in  a vector and then running the above hypothesis tests
-```{r hypotest}
+```{r hypotest2}
 arrdelaySat <- filter(flightData, DAY_OF_WEEK == "Saturday")$ARRIVAL_DELAY
 summary(arrdelaySat)
 test_res <- t.test(arrdelaySat, mu = 0, alternative = "greater")
 test_res
 ```
-
