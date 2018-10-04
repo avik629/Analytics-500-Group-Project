@@ -12,31 +12,42 @@ classoption: landscape
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,tidy.opts=list(width.cutoff=30),tidy=TRUE)
 library(tidyverse)
+library(corrplot)
 set.seed(111)
 ```
 
 # ABSTRACT
-_**I am just using this as a scratchpad for noting down ideas. Does not really correlate whith what should go on paper. Please pay more attention to the sections**_ 
+NOTE TO TEAM: So this should be a complete version of the research. I have focussed on this research on passengers. And passengers care about Arrival Delay most. And they can in most cases only have airline, date and time to 'pick. 
 
-Right now the goal is to get a good understanding of the data. AKA exploratory analysis.
-Relationships worth checking out:
-*Arr Delay ~ Day of the week*
-It seems arrival delay is related to day of the week.
+A quick summary below (not in presenatable prose, but for the teams info):
 
-Hypothesis Test
-H0 : Mean arrival delay on Sat-Evening <= 0
-H1 : Mean arival delay on Sat-Evening > 0
+Goal: 
+1.) Finding out what factors influence the delay of a flight. 
+2.) Enabling a passenger to find when they should book a flight 
+3.)Let passenger predict what can be their estimated arrival delay.
 
-There should be a section to check t-test assumptions (n>30, etc, etc)
+EDA: 
+-> A few snippets to get a feel for the data
+-> Scatterplot vs time should give a general idea of how flights delays trend over the week
+-> Correlation plot checks the realtionship between the 'minutes' based caloums and distance. The focus should be ARRIVAL_DELAY. Specifically that it does not have much relatioship with other variables like distance. Other conclusions can be brought forth as well. Feel free.
+-> Histogram plot **hints** that there is something really going on about departure day/time and the delay in causes (HINT: candidate for hypothesis testing)
 
-Net Delay ~ Month
-Dep Delay ~ Dep Airport
-Arr Delay ~ Arr Airport
-Net Delay ~ Airline
+INFERENCE:
+-> Hypothesis test: As ofcourse is possible, we can do many many hypothesis tests. But for showing to prof that we CAN do it. I focussed on Saturday evening. Highest, and looks like a passenger should definitely avoid. So to make sure that I am not seeing a random manifestation of sampling and the mean delay is not in reality, '0', we conducted a hypothesis test.
+-> ANOVA shows that the histogram above 'has significance'. And there is significant difference between the means of the day/time groups
 
+THE 'BEST' MODEL:
+Should be straight forward to understand if you have read the notes.
+BE ADVISED: Adjusted R-square is very low. Which is FINE! The reason I say is the example shared in the class notes was also low. And this is real data, so there are probably a quadrillion other factors which make up the variance. Please read this blog article to learn how to interpret the regression results:http://blog.minitab.com/blog/adventures-in-statistics-2/how-to-interpret-a-regression-model-with-low-r-squared-and-low-p-values
 
-Prediction query: What is the chance that a flight will be delayed given.......
+PREDICTION:
+Self explanatory
 
+APPENDIX:
+meh.....do what you will :)
+
+NOTE TO SELF:
+Clean this up for submitting to prof.
 #DATA LOADING & MANIPULATION
 ####Checking out the data
 
@@ -78,6 +89,12 @@ flightData$DEP_TIME_OF_DAY <- ordered(flightData$DEP_TIME_OF_DAY, levels = c("Mo
 ```
 #EXPLORATORY DATA ANALYSIS
 This section should have more graphs, charts and bits 'n pieces of other small studies. More so to make the report and presentation look 'fuller'. In my next version of this doc, I will add more. But feel free to suggest.
+####Scatterplot of arrival delay vs time
+x-axix each day is from 00:00 to 23:59. But I cant figure out a way to display the time without nasty overlapping so I just hid it.
+```{r}
+scat.plot <- ggplot(data = drop_na(flightData), aes(x = DEPARTURE_TIME, y = ARRIVAL_DELAY)) + geom_point() + facet_grid(cols = vars(DAY_OF_WEEK))
+scat.plot + theme(axis.text.x=element_blank())
+```
 
 ####Plot of arrival delay vs Day of the week + Time of the day
 ```{r}
@@ -86,6 +103,17 @@ groupByDayTime <- groupByDayTime[complete.cases(groupByDayTime),]
 delayByDayTime <- summarise(groupByDayTime, AVG_ARR_DELAY = mean(ARRIVAL_DELAY))
 ggplot(data = delayByDayTime, aes(x = DEP_TIME_OF_DAY, y = AVG_ARR_DELAY, fill = DAY_OF_WEEK)) + geom_bar(stat = "identity") + guides(fill = FALSE) + facet_wrap(vars(DAY_OF_WEEK),nrow = 1) + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
+
+####Correlation plot of all the time based variables
+Modification to subset data into a data frame for those time realted columns + Distance.
+Then, correlation, then plot.
+```{r}
+flightDataTime <- select(flightData, DEPARTURE_DELAY:ARRIVAL_DELAY)
+flightDataTime.corr <- round(cor(flightDataTime, use = "complete.obs"),2)
+flightDataTime.corr
+corrplot(flightDataTime.corr, method = "circle")
+```
+
 #INFERENCE
 
 This is to prove that for flights departing on saturday evenings, there is definitely a delay on arrival and it is not a result of sample variance.
@@ -101,9 +129,16 @@ summary(arrdelaySat)
 test_res <- t.test(arrdelaySat, mu = 0, alternative = "greater")
 test_res
 ```
+####ANOVA on DAY + TIME of DAY
+```{r}
+flightData.aov <- mutate(flightData, DAY_TIME = paste(DAY_OF_WEEK,"_",DEP_TIME_OF_DAY))
+res.flightData.aov <- aov(ARRIVAL_DELAY ~ DAY_TIME, data = flightData.aov)
+summary(res.flightData.aov)
+```
+
 #THE 'BEST' MODEL
 
-In the last lecture class, the professor taught us a workflow for determoining the 'best' model. I have used the adjusted r squared method. Please use the lecture notes to understand what I did below:
+In the last lecture class, the professor taught us a workflow for determoining the 'best' model. I have used the 'backward elimination adjusted r squared' method. Please use the lecture notes to understand what I did below:
 
 ####STEP 1: FULL MODEL (day,time, airline, origin, destination)
 ```{r step1}
@@ -114,7 +149,7 @@ summary(arrDelayModel00)$adj.r.squared
 ####STEP 2: 4-Variable MODEL
 From the results below it looks like removing any of the variables gives a lower adjusted r-square.
 So, **the full model is the best model**
-```{r step2, eval = FALSE}
+```{r step2, eval = TRUE}
 arrDelayModel01 <- lm(ARRIVAL_DELAY ~ DEP_TIME_OF_DAY + AIRLINE + ORIGIN_AIRPORT + DESTINATION_AIRPORT , data = flightData)
 print("No DAY_OF_WEEK")
 summary(arrDelayModel01)$adj.r.squared
@@ -169,4 +204,9 @@ arrdelaySat <- filter(flightData, DAY_OF_WEEK == "Saturday")$ARRIVAL_DELAY
 summary(arrdelaySat)
 test_res <- t.test(arrdelaySat, mu = 0, alternative = "greater")
 test_res
+```
+####Anova on day of the week
+```{r}
+res.aov <- aov(ARRIVAL_DELAY ~ DAY_OF_WEEK, data = flightData)
+summary(res.aov)
 ```
